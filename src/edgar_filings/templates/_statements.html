@@ -1,0 +1,28 @@
+{% if statements and statements.sections %}
+  <p class="scale">Amounts in {{ statements.scale_label }} (except EPS)</p>
+  {% for section in statements.sections %}
+    <h2>{{ section.title }}</h2>
+    <table class="statement">
+      <thead>
+        <tr>
+          <th>Line</th>
+          {% for period in statements.periods %}
+            <th>{{ period.label }}<span class="form-sub">{{ period.form }}</span></th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in section.rows %}
+          <tr>
+            <th>{{ row.label }}</th>
+            {% for period in statements.periods %}
+              <td class="num{% if row.negative[period.end] %} neg{% endif %}{% if row.per_share %} eps{% endif %}">{{ row.amounts[period.end] }}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endfor %}
+{% else %}
+  <p class="empty">No financial-statement amounts stored for this company. Ingest it with XBRL facts enabled (10-K/10-Q).</p>
+{% endif %}

@@ -17,8 +17,21 @@
     </form>
     <p class="meta">{{ db_path }} · {{ stats.filings }} filings · {{ stats.companies }} companies{% if stats.latest_filed %} · as of {{ stats.latest_filed }}{% endif %}</p>
   </header>
+    <section class="ingest" data-ingest>
+    <div class="ingest-latest">
+      <button type="button" class="btn-latest" data-ingest-latest>Download latest data</button>
+    </div>
+    <form class="ingest-history" data-ingest-history>
+      <label>From <input type="date" name="start" value="{{ range_start }}" required></label>
+      <label>To <input type="date" name="end" value="{{ range_end }}" required></label>
+      <button type="submit">Load historical data</button>
+    </form>
+    <p class="ingest-status" data-ingest-status aria-live="polite"></p>
+    <p class="ingest-hint">Pulls 10-K / 10-Q / 8-K daily indexes from the SEC (max {{ max_range_days }} days). XBRL amounts are fetched for a limited set of 10-K/10-Q filers. Requires <code>EDGAR_USER_AGENT</code>.</p>
+  </section>
   <main>
     {% block content %}{% endblock %}
   </main>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

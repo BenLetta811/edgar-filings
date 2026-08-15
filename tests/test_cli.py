@@ -17,6 +17,8 @@ def test_cli_ingest_latest_args():
     serve = parser.parse_args(["serve", "--port", "9000"])
     assert serve.command == "serve"
     assert serve.port == 9000
+    history = parser.parse_args(["ingest-range", "2026-08-01", "2026-08-14"])
+    assert history.command == "ingest-range"
 
 
 def test_filings_missing_company(tmp_path, capsys):

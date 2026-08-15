@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from flask import Flask, abort, g, render_template, request
+from flask import Flask, abort, g, jsonify, render_template, request
 
 from edgar_filings.db import Database, default_db_path
+from edgar_filings.ingest import MAX_RANGE_DAYS, ingest_latest, ingest_range
+from edgar_filings.jobs import IngestHub
+from edgar_filings.statements import build_statements, statement_concepts
 
 PACKAGE_DIR = Path(__file__).resolve().parent
+
+
+def _parse_iso_date(value: str) -> date:
+    return datetime.strptime(value, "%Y-%m-%d").date()
 
 
 def create_app(db_path: str | Path | None = None) -> Flask:
@@ -18,6 +26,18 @@ def create_app(db_path: str | Path | None = None) -> Flask:
         static_folder=str(PACKAGE_DIR / "static"),
     )
     app.config["EDGAR_DB_PATH"] = str(Path(db_path) if db_path else default_db_path())
+    hub = IngestHub()
+    app.config["INGEST_HUB"] = hub
+
+    @app.context_processor
+    def ingest_defaults():
+        today = date.today()
+        return {
+            "range_end": today.isoformat(),
+            "range_start": (today - timedelta(days=7)).isoformat(),
+            "max_range_days": MAX_RANGE_DAYS,
+            "ingest": hub.snapshot(),
+        }
 
     @app.before_request
     def open_db() -> None:
@@ -36,8 +56,12 @@ def create_app(db_path: str | Path | None = None) -> Flask:
         stats = db.stats()
         companies = db.search_companies(query) if query else []
         filings = []
+        statements = None
         if len(companies) == 1:
             filings = db.list_filings(companies[0].cik, limit=100)
+            statements = build_statements(
+                db.query_facts_by_concepts(companies[0].cik, statement_concepts())
+            )
         elif not query:
             filings = db.recent_filings(limit=80)
         return render_template(
@@ -46,6 +70,7 @@ def create_app(db_path: str | Path | None = None) -> Flask:
             stats=stats,
             companies=companies,
             filings=filings,
+            statements=statements,
             db_path=db.path.name,
         )
 
@@ -56,15 +81,66 @@ def create_app(db_path: str | Path | None = None) -> Flask:
         if not found:
             abort(404)
         filings = db.list_filings(found.cik, limit=200)
-        facts = db.query_facts(found.cik, limit=40)
+        statements = build_statements(
+            db.query_facts_by_concepts(found.cik, statement_concepts())
+        )
         return render_template(
             "company.html",
             company=found,
             filings=filings,
-            facts=facts,
+            statements=statements,
             stats=db.stats(),
             db_path=db.path.name,
         )
+
+    @app.get("/ingest/status")
+    def ingest_status():
+        return jsonify(hub.snapshot())
+
+    @app.post("/ingest/latest")
+    def ingest_latest_route():
+        db_file = app.config["EDGAR_DB_PATH"]
+
+        def worker():
+            db = Database(db_file)
+            try:
+                return ingest_latest(db)
+            finally:
+                db.close()
+
+        started = hub.start(worker)
+        status = 202 if started else 409
+        body = hub.snapshot()
+        if not started:
+            body["error"] = body["error"] or "An ingest job is already running."
+        return jsonify(body), status
+
+    @app.post("/ingest/history")
+    def ingest_history_route():
+        payload = request.get_json(silent=True) or request.form
+        start_raw = str(payload.get("start") or "").strip()
+        end_raw = str(payload.get("end") or "").strip()
+        try:
+            start = _parse_iso_date(start_raw)
+            end = _parse_iso_date(end_raw)
+        except ValueError:
+            return jsonify({"state": "error", "error": "Use YYYY-MM-DD for both dates."}), 400
+
+        db_file = app.config["EDGAR_DB_PATH"]
+
+        def worker():
+            db = Database(db_file)
+            try:
+                return ingest_range(db, start, end)
+            finally:
+                db.close()
+
+        started = hub.start(worker)
+        status = 202 if started else 409
+        body = hub.snapshot()
+        if not started:
+            body["error"] = body["error"] or "An ingest job is already running."
+        return jsonify(body), status
 
     return app
 

@@ -67,6 +67,67 @@ body {
   font-size: 0.88rem;
 }
 
+.ingest {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.65rem 1.25rem;
+  align-items: center;
+  padding: 0.85rem 1.75rem;
+  border-bottom: 1px solid var(--line);
+  background: #efe8dc;
+}
+
+.ingest-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.75rem;
+  align-items: center;
+}
+
+.ingest-history label {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.ingest-history input[type="date"] {
+  margin-left: 0.3rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--line);
+  font: inherit;
+  background: #fff;
+}
+
+.ingest button {
+  padding: 0.5rem 0.85rem;
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ingest button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.btn-latest { background: var(--ink); }
+
+.ingest-status, .ingest-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.ingest-hint { color: var(--muted); }
+.ingest-status.is-error { color: #8a1f12; }
+.ingest-status.is-ok { color: #215c32; }
+.ingest-status.is-busy { color: var(--link); }
+
+@media (max-width: 720px) {
+  .ingest { grid-template-columns: 1fr; }
+}
+
 main {
   max-width: 72rem;
   margin: 0 auto;
@@ -128,6 +189,38 @@ h2 { font-size: 1.15rem; margin: 1.75rem 0 0.6rem; }
 }
 .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.82rem; }
 .empty { background: var(--card); padding: 1rem; border: 1px dashed var(--line); }
+.scale { color: var(--muted); margin: 0 0 0.4rem; font-size: 0.92rem; }
+.statement {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  margin-bottom: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.statement th, .statement td {
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid var(--line);
+}
+.statement thead th {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: right;
+  vertical-align: bottom;
+}
+.statement thead th:first-child,
+.statement tbody th {
+  text-align: left;
+  font-weight: 600;
+}
+.statement .form-sub {
+  display: block;
+  font-weight: 400;
+  font-size: 0.75rem;
+}
+.statement .num { text-align: right; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9rem; }
+.statement .num.neg { color: #8a1f12; }
+.statement .num.eps { font-style: italic; }
 code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; }
 .sr-only {
   position: absolute;

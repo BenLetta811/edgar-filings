@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from edgar_filings.facts import XbrlFact
 from edgar_filings.db import Database
 from edgar_filings.submissions import Filing
 from edgar_filings.tickers import CompanyRef
@@ -22,6 +23,24 @@ def _seed(path: Path) -> None:
             )
         ]
     )
+    db.upsert_facts(
+        [
+            XbrlFact(
+                cik="0000320193",
+                taxonomy="us-gaap",
+                concept="NetIncomeLoss",
+                unit="USD",
+                period_start="2023-10-01",
+                period_end="2024-09-28",
+                fy="2024",
+                fp="FY",
+                form="10-K",
+                accession="0000320193-24-000123",
+                value="93736000000",
+                filed="2024-11-01",
+            )
+        ]
+    )
     db.close()
 
 
@@ -40,8 +59,16 @@ def test_web_search_and_company(tmp_path: Path):
 
     page = client.get("/company/0000320193")
     assert page.status_code == 200
-    assert b"10-K" in page.data
-    assert b"0000320193-24-000123" in page.data
+    assert b"Net income" in page.data
+    assert b"93,736" in page.data
+    assert b"Income statement" in page.data
 
     missing = client.get("/company/0000000000")
     assert missing.status_code == 404
+
+    home = client.get("/")
+    assert b"Download latest data" in home.data
+    assert b"Load historical data" in home.data
+
+    bad = client.post("/ingest/history", json={"start": "nope", "end": "2024-01-01"})
+    assert bad.status_code == 400

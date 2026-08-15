@@ -1,47 +1,19 @@
 {% extends "base.html" %}
-{% block title %}{{ company.ticker or company.name }} · EDGAR filings{% endblock %}
+{% block title %}{{ company.ticker or company.name }} · Financials{% endblock %}
 {% block content %}
   <p class="crumb"><a href="{{ url_for('index') }}">Latest filings</a></p>
   <h1>
     <span class="ticker-lg">{{ company.ticker or "—" }}</span>
     {{ company.name or "Unnamed filer" }}
   </h1>
-  <p class="lede">CIK {{ company.cik }} · {{ filings|length }} stored filing{{ '' if filings|length == 1 else 's' }}</p>
+  <p class="lede">CIK {{ company.cik }} · financial statement amounts from stored XBRL</p>
 
-  <h2>Filings</h2>
+  {% include "_statements.html" %}
+
+  <h2>Source filings</h2>
   {% if filings %}
     {% include "_filings_table.html" %}
   {% else %}
     <p class="empty">No filings stored for this company.</p>
-  {% endif %}
-
-  <h2>XBRL facts</h2>
-  {% if facts %}
-    <table class="filings">
-      <thead>
-        <tr>
-          <th>Concept</th>
-          <th>Unit</th>
-          <th>Period end</th>
-          <th>FY</th>
-          <th>Form</th>
-          <th>Value</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in facts %}
-          <tr>
-            <td class="mono">{{ row["concept"] }}</td>
-            <td>{{ row["unit"] }}</td>
-            <td>{{ row["period_end"] }}</td>
-            <td>{{ row["fy"] }} {{ row["fp"] }}</td>
-            <td><span class="form">{{ row["form"] }}</span></td>
-            <td class="mono">{{ row["value"] }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  {% else %}
-    <p class="empty">No XBRL facts stored for this company. Ingest it with facts enabled, or it may not have been in the latest 10-K/10-Q fact cap.</p>
   {% endif %}
 {% endblock %}

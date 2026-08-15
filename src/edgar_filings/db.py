@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from edgar_filings.facts import XbrlFact
@@ -274,5 +274,29 @@ class Database:
                 LIMIT ?
                 """,
                 (cik, limit),
+            )
+        )
+
+    def query_facts_by_concepts(
+        self,
+        cik: str,
+        concepts: Sequence[str],
+        limit: int = 20000,
+    ) -> list[sqlite3.Row]:
+        names = [name for name in concepts if name]
+        if not names:
+            return []
+        placeholders = ",".join("?" * len(names))
+        return list(
+            self.conn.execute(
+                f"""
+                SELECT cik, taxonomy, concept, unit, period_start, period_end,
+                       fy, fp, form, accession, value, filed
+                FROM xbrl_facts
+                WHERE cik = ? AND concept IN ({placeholders})
+                ORDER BY period_end DESC, filed DESC
+                LIMIT ?
+                """,
+                (cik, *names, limit),
             )
         )

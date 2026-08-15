@@ -15,9 +15,12 @@
           </li>
         {% endfor %}
       </ul>
-      {% if companies|length == 1 and filings %}
-        <h2>Filings</h2>
-        {% include "_filings_table.html" %}
+      {% if companies|length == 1 %}
+        {% include "_statements.html" %}
+        {% if filings %}
+          <h2>Source filings</h2>
+          {% include "_filings_table.html" %}
+        {% endif %}
       {% endif %}
     {% else %}
       <p class="empty">No stored company matches that ticker or name. Run <code>edgar-filings ingest-latest</code> or ingest the ticker first.</p>

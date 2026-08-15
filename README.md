@@ -62,6 +62,7 @@ Pull the latest published **daily master index** (10-K / 10-Q / 8-K by default) 
 ```bash
 edgar-filings ingest-latest
 edgar-filings ingest-latest --date 2026-08-14 --skip-facts
+edgar-filings ingest-range 2026-08-01 2026-08-14
 ```
 
 Use a custom database path:
@@ -78,7 +79,7 @@ Browse stored filings by ticker or company name (local SQLite only; the browser 
 edgar-filings serve
 ```
 
-Then open http://127.0.0.1:8000. Search `FRMI`, `Fermi`, or leave the box empty to see the latest stored filings.
+Then open http://127.0.0.1:8000. Use **Download latest data** for the most recent published daily index, or pick a From/To range and **Load historical data** (up to 62 days). Search a ticker or company name to see income statement, balance sheet, and cash flow amounts.
 
 ## What is stored
 
