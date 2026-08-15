@@ -8,6 +8,14 @@ def test_cli_help():
     assert args.ticker == "AAPL"
 
 
+def test_cli_ingest_latest_args():
+    parser = build_parser()
+    args = parser.parse_args(["ingest-latest", "--skip-facts", "--lookback-days", "5"])
+    assert args.command == "ingest-latest"
+    assert args.skip_facts is True
+    assert args.lookback_days == 5
+
+
 def test_filings_missing_company(tmp_path, capsys):
     code = main(["--db", str(tmp_path / "empty.db"), "filings", "AAPL"])
     assert code == 1

@@ -46,3 +46,7 @@ def find_by_ticker(companies: Iterable[CompanyRef], ticker: str) -> CompanyRef:
         if company.ticker == needle:
             return company
     raise KeyError(f"Unknown ticker: {ticker}")
+
+
+def index_by_cik(companies: Iterable[CompanyRef]) -> dict[str, CompanyRef]:
+    return {company.cik: company for company in companies}

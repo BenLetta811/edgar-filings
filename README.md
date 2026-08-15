@@ -57,6 +57,13 @@ Skip XBRL on ingest:
 edgar-filings ingest AAPL --skip-facts
 ```
 
+Pull the latest published **daily master index** (10-K / 10-Q / 8-K by default) into SQLite. On weekends this walks back to the last trading day. XBRL is fetched for up to 40 companies that filed a 10-K or 10-Q that day.
+
+```bash
+edgar-filings ingest-latest
+edgar-filings ingest-latest --date 2026-08-14 --skip-facts
+```
+
 Use a custom database path:
 
 ```bash

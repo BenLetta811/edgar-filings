@@ -4,6 +4,7 @@ from edgar_filings.client import (
     document_url,
     pad_cik,
 )
+from edgar_filings.daily_index import parse_master_idx
 from edgar_filings.facts import parse_company_facts
 from edgar_filings.submissions import parse_submissions
 from edgar_filings.tickers import find_by_ticker, parse_company_tickers
@@ -53,6 +54,25 @@ def test_parse_submissions_filters_forms():
     assert filings[0].form == "10-K"
     assert filings[0].cik == "0000320193"
     assert filings[0].document_url.endswith("/aapl-20240928.htm")
+
+
+def test_parse_master_idx():
+    text = """
+Daily Index of EDGAR Documents
+CIK|Company Name|Form Type|Date Filed|Filename
+--------------------------------------------------------------------------------
+320193|Apple Inc.|10-K|20241101|edgar/data/320193/0000320193-24-000123.txt
+789019|MICROSOFT CORP|8-K|20241101|edgar/data/789019/0000950170-24-000001.txt
+320193|Apple Inc.|4|20241101|edgar/data/320193/0000320193-24-000124.txt
+"""
+    filings, names = parse_master_idx(text, forms=["10-K", "8-K"])
+    assert len(filings) == 2
+    assert names["0000320193"] == "Apple Inc."
+    apple = filings[0]
+    assert apple.accession == "0000320193-24-000123"
+    assert apple.filed_at == "2024-11-01"
+    assert apple.document_url.endswith("/0000320193-24-000123.txt")
+    assert filings[1].form == "8-K"
 
 
 def test_parse_company_facts():

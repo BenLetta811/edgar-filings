@@ -5,12 +5,19 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
+from datetime import date, datetime, timedelta
 
 from edgar_filings.client import EdgarClient
+from edgar_filings.daily_index import parse_master_idx
 from edgar_filings.db import Database
 from edgar_filings.facts import parse_company_facts
 from edgar_filings.submissions import parse_submissions
-from edgar_filings.tickers import CompanyRef, find_by_ticker, parse_company_tickers
+from edgar_filings.tickers import (
+    CompanyRef,
+    find_by_ticker,
+    index_by_cik,
+    parse_company_tickers,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -36,6 +43,38 @@ def build_parser() -> argparse.ArgumentParser:
         "--skip-facts",
         action="store_true",
         help="Skip companyfacts XBRL download",
+    )
+
+    latest = sub.add_parser(
+        "ingest-latest",
+        help="Fetch the latest published daily EDGAR master index into SQLite",
+    )
+    latest.add_argument(
+        "--date",
+        default=None,
+        help="Index date YYYY-MM-DD (default: most recent published day)",
+    )
+    latest.add_argument(
+        "--forms",
+        default="10-K,10-Q,8-K",
+        help="Comma-separated form types (default: 10-K,10-Q,8-K)",
+    )
+    latest.add_argument(
+        "--skip-facts",
+        action="store_true",
+        help="Skip companyfacts XBRL download",
+    )
+    latest.add_argument(
+        "--max-fact-companies",
+        type=int,
+        default=40,
+        help="Max unique CIKs to pull XBRL for (10-K/10-Q filers). Default 40.",
+    )
+    latest.add_argument(
+        "--lookback-days",
+        type=int,
+        default=10,
+        help="How many calendar days back to search for a published index",
     )
 
     filings = sub.add_parser("filings", help="List stored filings for a ticker")
@@ -69,10 +108,89 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     n_filings = db.upsert_filings(filings)
     n_facts = 0
     if not args.skip_facts:
-        n_facts = db.upsert_facts(parse_company_facts(client.company_facts(company.cik)))
+        facts_payload = client.company_facts(company.cik)
+        if facts_payload:
+            n_facts = db.upsert_facts(parse_company_facts(facts_payload))
     print(
         f"Ingested {company.ticker} (CIK {company.cik}): "
-        f"{n_filings} filings, {n_facts} facts ? {db.path}"
+        f"{n_filings} filings, {n_facts} facts -> {db.path}"
+    )
+    db.close()
+    return 0
+
+
+def _parse_iso_date(value: str) -> date:
+    return datetime.strptime(value, "%Y-%m-%d").date()
+
+
+def cmd_ingest_latest(args: argparse.Namespace) -> int:
+    db = Database(args.db)
+    client = EdgarClient()
+    forms = [part.strip() for part in args.forms.split(",") if part.strip()]
+    try:
+        ticker_payload = client.company_tickers()
+    except Exception as exc:
+        print(
+            "SEC request failed. Set EDGAR_USER_AGENT to a real name and email "
+            f"(not a GitHub noreply address). {exc}",
+            file=sys.stderr,
+        )
+        db.close()
+        return 1
+
+    if args.date:
+        candidates = [_parse_iso_date(args.date)]
+    else:
+        start = date.today()
+        candidates = [start - timedelta(days=i) for i in range(max(args.lookback_days, 1))]
+
+    payload = None
+    index_day = None
+    for day in candidates:
+        payload = client.daily_master(day)
+        if payload:
+            index_day = day
+            break
+
+    if not payload or index_day is None:
+        print("No published daily master index found in the lookback window.", file=sys.stderr)
+        db.close()
+        return 1
+
+    filings, names = parse_master_idx(payload, forms=forms)
+    tickers = parse_company_tickers(ticker_payload)
+    by_cik = index_by_cik(tickers)
+    companies: dict[str, CompanyRef] = {}
+    for filing in filings:
+        if filing.cik in companies:
+            continue
+        known = by_cik.get(filing.cik)
+        companies[filing.cik] = known or CompanyRef(
+            cik=filing.cik,
+            ticker="",
+            name=names.get(filing.cik, ""),
+        )
+        db.upsert_company(companies[filing.cik])
+
+    n_filings = db.upsert_filings(filings)
+    n_facts = 0
+    if not args.skip_facts:
+        fact_forms = {"10-K", "10-Q", "10-K/A", "10-Q/A"}
+        fact_ciks: list[str] = []
+        for filing in filings:
+            if filing.form.upper() in fact_forms and filing.cik not in fact_ciks:
+                fact_ciks.append(filing.cik)
+            if len(fact_ciks) >= max(args.max_fact_companies, 0):
+                break
+        for cik in fact_ciks:
+            payload_facts = client.company_facts(cik)
+            if not payload_facts:
+                continue
+            n_facts += db.upsert_facts(parse_company_facts(payload_facts))
+
+    print(
+        f"Ingested daily index {index_day.isoformat()}: "
+        f"{len(companies)} companies, {n_filings} filings, {n_facts} facts -> {db.path}"
     )
     db.close()
     return 0
@@ -130,6 +248,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "ingest":
         return cmd_ingest(args)
+    if args.command == "ingest-latest":
+        return cmd_ingest_latest(args)
     if args.command == "filings":
         return cmd_filings(args)
     if args.command == "facts":
