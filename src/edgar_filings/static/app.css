@@ -1,0 +1,144 @@
+:root {
+  --ink: #1c1915;
+  --muted: #5c564c;
+  --paper: #f4efe6;
+  --card: #fffdf8;
+  --line: #d9d0c3;
+  --accent: #6b3f1d;
+  --link: #1f4b73;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 16px/1.45 "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.top {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem 1.5rem;
+  align-items: center;
+  padding: 1.25rem 1.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.92rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.search {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.search input {
+  flex: 1;
+  min-width: 12rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font: inherit;
+  background: #fff;
+}
+
+.search button {
+  padding: 0.55rem 0.9rem;
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.meta {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+main {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.75rem 3rem;
+}
+
+h1 { font-size: 1.7rem; font-weight: 600; margin: 0 0 0.6rem; }
+h2 { font-size: 1.15rem; margin: 1.75rem 0 0.6rem; }
+.lede, .crumb { color: var(--muted); margin: 0 0 1rem; }
+.crumb a { color: var(--link); }
+.ticker-lg {
+  display: inline-block;
+  margin-right: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  background: var(--ink);
+  color: var(--card);
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+.companies { list-style: none; padding: 0; margin: 0 0 1.5rem; }
+.companies li { border-bottom: 1px solid var(--line); }
+.companies a {
+  display: grid;
+  grid-template-columns: 6rem 1fr auto;
+  gap: 0.75rem;
+  padding: 0.7rem 0;
+  color: inherit;
+  text-decoration: none;
+}
+.companies .ticker { font-weight: 700; letter-spacing: 0.03em; }
+.companies .cik { color: var(--muted); font-size: 0.9rem; }
+
+.filings {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  font-size: 0.95rem;
+}
+.filings th, .filings td {
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.filings th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+}
+.filings a { color: var(--link); }
+.form {
+  display: inline-block;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+.mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.82rem; }
+.empty { background: var(--card); padding: 1rem; border: 1px dashed var(--line); }
+code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+@media (max-width: 720px) {
+  .top { grid-template-columns: 1fr; }
+  .companies a { grid-template-columns: 1fr; }
+  .filings { font-size: 0.85rem; }
+}

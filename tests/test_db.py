@@ -47,4 +47,10 @@ def test_db_upsert_and_query(tmp_path: Path):
     assert filings[0]["form"] == "10-K"
     facts = db.query_facts(company.cik, concept="NetIncomeLoss")
     assert facts[0]["value"] == "93736000000"
+    matches = db.search_companies("apple")
+    assert len(matches) == 1 and matches[0].ticker == "AAPL"
+    assert db.search_companies("AAPL")[0].cik == company.cik
+    assert db.company_by_cik(company.cik) is not None
+    recent = db.recent_filings()
+    assert recent[0]["ticker"] == "AAPL"
     db.close()

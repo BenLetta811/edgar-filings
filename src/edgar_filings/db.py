@@ -65,7 +65,7 @@ class Database:
     def __init__(self, path: str | Path | None = None) -> None:
         self.path = Path(path) if path else default_db_path()
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(self.path)
+        self.conn = sqlite3.connect(self.path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(SCHEMA)
@@ -154,23 +154,89 @@ class Database:
         self.conn.commit()
         return len(rows)
 
+    def _company_from_row(self, row: sqlite3.Row | None) -> CompanyRef | None:
+        if not row:
+            return None
+        return CompanyRef(cik=row["cik"], ticker=row["ticker"], name=row["name"])
+
     def company_by_ticker(self, ticker: str) -> CompanyRef | None:
         row = self.conn.execute(
             "SELECT cik, ticker, name FROM companies WHERE ticker = ? COLLATE NOCASE",
             (ticker.upper().strip(),),
         ).fetchone()
-        if not row:
-            return None
-        return CompanyRef(cik=row["cik"], ticker=row["ticker"], name=row["name"])
+        return self._company_from_row(row)
+
+    def company_by_cik(self, cik: str) -> CompanyRef | None:
+        row = self.conn.execute(
+            "SELECT cik, ticker, name FROM companies WHERE cik = ?",
+            (cik,),
+        ).fetchone()
+        return self._company_from_row(row)
+
+    def search_companies(self, query: str, limit: int = 25) -> list[CompanyRef]:
+        needle = query.strip()
+        if not needle:
+            return []
+        like = f"%{needle}%"
+        exact = needle.upper()
+        prefix = f"{needle}%"
+        rows = self.conn.execute(
+            """
+            SELECT cik, ticker, name
+            FROM companies
+            WHERE ticker LIKE ? COLLATE NOCASE
+               OR name LIKE ? COLLATE NOCASE
+            ORDER BY
+                CASE
+                    WHEN ticker = ? COLLATE NOCASE THEN 0
+                    WHEN ticker LIKE ? COLLATE NOCASE THEN 1
+                    WHEN name LIKE ? COLLATE NOCASE THEN 2
+                    ELSE 3
+                END,
+                name
+            LIMIT ?
+            """,
+            (like, like, exact, prefix, prefix, limit),
+        )
+        return [CompanyRef(cik=row["cik"], ticker=row["ticker"], name=row["name"]) for row in rows]
+
+    def stats(self) -> dict[str, str | int]:
+        companies = self.conn.execute("SELECT COUNT(*) FROM companies").fetchone()[0]
+        filings = self.conn.execute("SELECT COUNT(*) FROM filings").fetchone()[0]
+        facts = self.conn.execute("SELECT COUNT(*) FROM xbrl_facts").fetchone()[0]
+        latest = self.conn.execute("SELECT MAX(filed_at) FROM filings").fetchone()[0] or ""
+        return {
+            "companies": int(companies),
+            "filings": int(filings),
+            "facts": int(facts),
+            "latest_filed": str(latest),
+        }
+
+    def recent_filings(self, limit: int = 50) -> list[sqlite3.Row]:
+        return list(
+            self.conn.execute(
+                """
+                SELECT f.accession, f.cik, f.form, f.filed_at, f.report_date,
+                       f.primary_document, f.document_url, c.ticker, c.name
+                FROM filings f
+                JOIN companies c ON c.cik = f.cik
+                ORDER BY f.filed_at DESC, f.accession DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+        )
 
     def list_filings(self, cik: str, limit: int = 25) -> list[sqlite3.Row]:
         return list(
             self.conn.execute(
                 """
-                SELECT accession, cik, form, filed_at, report_date, primary_document, document_url
-                FROM filings
-                WHERE cik = ?
-                ORDER BY filed_at DESC, accession DESC
+                SELECT f.accession, f.cik, f.form, f.filed_at, f.report_date,
+                       f.primary_document, f.document_url, c.ticker, c.name
+                FROM filings f
+                JOIN companies c ON c.cik = f.cik
+                WHERE f.cik = ?
+                ORDER BY f.filed_at DESC, f.accession DESC
                 LIMIT ?
                 """,
                 (cik, limit),

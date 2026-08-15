@@ -14,6 +14,9 @@ def test_cli_ingest_latest_args():
     assert args.command == "ingest-latest"
     assert args.skip_facts is True
     assert args.lookback_days == 5
+    serve = parser.parse_args(["serve", "--port", "9000"])
+    assert serve.command == "serve"
+    assert serve.port == 9000
 
 
 def test_filings_missing_company(tmp_path, capsys):

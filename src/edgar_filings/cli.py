@@ -86,6 +86,10 @@ def build_parser() -> argparse.ArgumentParser:
     facts.add_argument("--concept", default=None, help="e.g. NetIncomeLoss")
     facts.add_argument("--limit", type=int, default=25)
 
+    serve = sub.add_parser("serve", help="Open a local web UI for stored filings")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8000)
+
     return parser
 
 
@@ -243,6 +247,17 @@ def cmd_facts(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    from edgar_filings.web import run_server
+
+    db = Database(args.db)
+    path = db.path
+    db.close()
+    print(f"Serving {path} at http://{args.host}:{args.port}")
+    run_server(path, host=args.host, port=args.port)
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -254,6 +269,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return cmd_filings(args)
     if args.command == "facts":
         return cmd_facts(args)
+    if args.command == "serve":
+        return cmd_serve(args)
     parser.error(f"unknown command {args.command}")
     return 2
 

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}EDGAR filings{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="{{ url_for('index') }}">EDGAR filings</a>
+    <form class="search" action="{{ url_for('index') }}" method="get">
+      <label class="sr-only" for="q">Search ticker or company</label>
+      <input id="q" name="q" type="search" value="{{ query|default('') }}"
+             placeholder="Ticker or company name" autofocus>
+      <button type="submit">Search</button>
+    </form>
+    <p class="meta">{{ db_path }} · {{ stats.filings }} filings · {{ stats.companies }} companies{% if stats.latest_filed %} · as of {{ stats.latest_filed }}{% endif %}</p>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

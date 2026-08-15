@@ -1,0 +1,42 @@
+<table class="filings">
+  <thead>
+    <tr>
+      <th>Filed</th>
+      <th>Form</th>
+      <th>Ticker</th>
+      <th>Company</th>
+      <th>Accession</th>
+      <th>Document</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in filings %}
+      <tr>
+        <td>{{ row["filed_at"] }}</td>
+        <td><span class="form">{{ row["form"] }}</span></td>
+        <td>
+          {% if row["ticker"] is defined %}
+            <a href="{{ url_for('company', cik=row['cik']) }}">{{ row["ticker"] or "—" }}</a>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td class="name">
+          {% if row["name"] is defined %}
+            <a href="{{ url_for('company', cik=row['cik']) }}">{{ row["name"] or "—" }}</a>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td class="mono">{{ row["accession"] }}</td>
+        <td>
+          {% if row["document_url"] %}
+            <a href="{{ row['document_url'] }}" rel="noopener noreferrer">Open</a>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

@@ -70,6 +70,16 @@ Use a custom database path:
 edgar-filings --db /tmp/edgar.db ingest MSFT
 ```
 
+## Web UI
+
+Browse stored filings by ticker or company name (local SQLite only; the browser does not call SEC.gov):
+
+```bash
+edgar-filings serve
+```
+
+Then open http://127.0.0.1:8000. Search `FRMI`, `Fermi`, or leave the box empty to see the latest stored filings.
+
 ## What is stored
 
 - **companies**: CIK, ticker, name

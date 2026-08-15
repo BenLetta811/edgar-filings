@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{% if query %}{{ query }} · {% endif %}EDGAR filings{% endblock %}
+{% block content %}
+  {% if query %}
+    <h1>Results for “{{ query }}”</h1>
+    {% if companies %}
+      <ul class="companies">
+        {% for company in companies %}
+          <li>
+            <a href="{{ url_for('company', cik=company.cik) }}">
+              <span class="ticker">{{ company.ticker or "—" }}</span>
+              <span class="name">{{ company.name or "Unnamed filer" }}</span>
+              <span class="cik">CIK {{ company.cik }}</span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if companies|length == 1 and filings %}
+        <h2>Filings</h2>
+        {% include "_filings_table.html" %}
+      {% endif %}
+    {% else %}
+      <p class="empty">No stored company matches that ticker or name. Run <code>edgar-filings ingest-latest</code> or ingest the ticker first.</p>
+    {% endif %}
+  {% else %}
+    <h1>Latest stored filings</h1>
+    <p class="lede">Search by ticker or company name. This list is from the local SQLite database, not a live SEC query.</p>
+    {% if filings %}
+      {% include "_filings_table.html" %}
+    {% else %}
+      <p class="empty">No filings in the database yet. Run <code>edgar-filings ingest-latest</code>.</p>
+    {% endif %}
+  {% endif %}
+{% endblock %}
