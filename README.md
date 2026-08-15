@@ -1,0 +1,81 @@
+# edgar-filings
+
+CLI that pulls SEC EDGAR filing metadata, primary-document links, and XBRL company facts into a local SQLite database.
+
+This is a backend/CLI tool. Do not call these endpoints from a browser (CORS is not supported).
+
+Official docs:
+
+- [EDGAR Application Developer FAQ](https://www.sec.gov/os/webmaster-faq#developers)
+- [data.sec.gov APIs](https://www.sec.gov/search-filings/edgar-application-programming-interfaces)
+- Tickers: `https://www.sec.gov/files/company_tickers.json`
+- Submissions: `https://data.sec.gov/submissions/CIK##########.json`
+- Company facts: `https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json`
+
+## SEC User-Agent (required)
+
+The SEC does not use API keys, but every request must send a User-Agent that identifies a real person (name + email). A placeholder will get you blocked with HTTP 403.
+
+```bash
+export EDGAR_USER_AGENT="edgar-filings Your Name you@email.com"
+```
+
+Copy `.env.example` and replace `YourName` / `you@email.com`. The client also honors:
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `EDGAR_USER_AGENT` | `edgar-filings YourName you@email.com` | Must be a real name+email for live SEC access |
+| `EDGAR_DB_PATH` | `./edgar.db` | SQLite file |
+| `EDGAR_RATE_LIMIT` | `6` | Requests per second, capped at 10 |
+
+The client throttles to at most 10 req/s (default 6) and retries HTTP 403/429/5xx with backoff. CIKs are stored as 10-digit zero-padded strings.
+
+## Install
+
+Python 3.10+.
+
+```bash
+cd /Users/benjaminletta/Projects/edgar-filings
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+## Usage
+
+```bash
+export EDGAR_USER_AGENT="edgar-filings Your Name you@email.com"
+
+edgar-filings ingest AAPL --forms 10-K,10-Q,8-K
+edgar-filings filings AAPL
+edgar-filings facts AAPL --concept NetIncomeLoss
+```
+
+Skip XBRL on ingest:
+
+```bash
+edgar-filings ingest AAPL --skip-facts
+```
+
+Use a custom database path:
+
+```bash
+edgar-filings --db /tmp/edgar.db ingest MSFT
+```
+
+## What is stored
+
+- **companies**: CIK, ticker, name
+- **filings**: accession, form, dates, primary document, archive URL  
+  `https://www.sec.gov/Archives/edgar/data/{cik_no_leading_zeros}/{accession_no_dashes}/{primaryDocument}`
+- **xbrl_facts**: flattened companyfacts (taxonomy, concept, unit, period, value, accession)
+
+v1 does not download full HTML/PDF filing bodies or ingest nightly bulk ZIPs.
+
+## Tests
+
+```bash
+pytest
+```
+
+Tests mock HTTP. They do not call the SEC.
