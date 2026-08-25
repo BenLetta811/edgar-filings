@@ -9,6 +9,10 @@
 <body>
   <header class="top">
     <a class="brand" href="{{ url_for('index') }}">EDGAR filings</a>
+    <nav class="nav">
+      <a href="{{ url_for('index') }}">Search</a>
+      <a href="{{ url_for('updates') }}">Recent updates</a>
+    </nav>
     <form class="search" action="{{ url_for('index') }}" method="get">
       <label class="sr-only" for="q">Search ticker or company</label>
       <input id="q" name="q" type="search" value="{{ query|default('') }}"

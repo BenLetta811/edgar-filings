@@ -53,4 +53,5 @@ def test_db_upsert_and_query(tmp_path: Path):
     assert db.company_by_cik(company.cik) is not None
     recent = db.recent_filings()
     assert recent[0]["ticker"] == "AAPL"
+    assert db.recent_filings(form="10-K")[0]["form"] == "10-K"
     db.close()

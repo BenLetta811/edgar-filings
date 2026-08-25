@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from itertools import groupby
 from pathlib import Path
 
 from flask import Flask, abort, g, jsonify, render_template, request
@@ -17,6 +18,14 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 
 def _parse_iso_date(value: str) -> date:
     return datetime.strptime(value, "%Y-%m-%d").date()
+
+
+def group_filings_by_date(filings) -> list[dict]:
+    groups: list[dict] = []
+    for filed_at, rows in groupby(filings, key=lambda row: row["filed_at"]):
+        items = list(rows)
+        groups.append({"filed_at": filed_at, "count": len(items), "filings": items})
+    return groups
 
 
 def create_app(db_path: str | Path | None = None) -> Flask:
@@ -71,6 +80,20 @@ def create_app(db_path: str | Path | None = None) -> Flask:
             companies=companies,
             filings=filings,
             statements=statements,
+            db_path=db.path.name,
+        )
+
+    @app.route("/updates")
+    def updates():
+        db: Database = g.db
+        form = (request.args.get("form") or "").strip()
+        filings = db.recent_filings(limit=400, form=form or None)
+        return render_template(
+            "updates.html",
+            query="",
+            stats=db.stats(),
+            groups=group_filings_by_date(filings),
+            form_filter=form,
             db_path=db.path.name,
         )
 

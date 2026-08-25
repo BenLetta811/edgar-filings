@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Recent updates{% endblock %}
+{% block content %}
+  <h1>Recent updates</h1>
+  <p class="lede">Stored filings newest first, grouped by filing date. This is local SQLite data, not a live SEC query.</p>
+  <form class="filter" method="get" action="{{ url_for('updates') }}">
+    <label>Form
+      <select name="form" onchange="this.form.submit()">
+        <option value="" {% if not form_filter %}selected{% endif %}>All</option>
+        {% for form in ["10-K", "10-Q", "8-K"] %}
+          <option value="{{ form }}" {% if form_filter == form %}selected{% endif %}>{{ form }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </form>
+
+  {% if groups %}
+    {% for group in groups %}
+      <section class="date-group">
+        <h2>{{ group.filed_at }} <span class="count">{{ group.count }} filing{{ '' if group.count == 1 else 's' }}</span></h2>
+        {% set filings = group.filings %}
+        {% include "_filings_table.html" %}
+      </section>
+    {% endfor %}
+  {% else %}
+    <p class="empty">No filings in the database yet. Use <strong>Download latest data</strong> or run <code>edgar-filings ingest-latest</code>.</p>
+  {% endif %}
+{% endblock %}

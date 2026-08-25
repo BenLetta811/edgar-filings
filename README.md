@@ -79,7 +79,7 @@ Browse stored filings by ticker or company name (local SQLite only; the browser 
 edgar-filings serve
 ```
 
-Then open http://127.0.0.1:8000. Use **Download latest data** for the most recent published daily index, or pick a From/To range and **Load historical data** (up to 62 days). Search a ticker or company name to see income statement, balance sheet, and cash flow amounts.
+Then open http://127.0.0.1:8000. **Recent updates** (`/updates`) lists stored filings newest first, grouped by filing date. Use **Download latest data** for the most recent published daily index, or pick a From/To range and **Load historical data** (up to 62 days). Search a ticker or company name to see income statement, balance sheet, and cash flow amounts.
 
 ## What is stored
 

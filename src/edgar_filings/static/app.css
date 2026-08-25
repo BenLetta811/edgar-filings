@@ -19,13 +19,21 @@ body {
 
 .top {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto auto 1fr;
   gap: 0.75rem 1.5rem;
   align-items: center;
   padding: 1.25rem 1.75rem 1rem;
   border-bottom: 1px solid var(--line);
   background: var(--card);
 }
+
+.nav {
+  display: flex;
+  gap: 0.9rem;
+  font-size: 0.95rem;
+}
+.nav a { color: var(--link); text-decoration: none; }
+.nav a:hover { text-decoration: underline; }
 
 .brand {
   font-weight: 700;
@@ -124,10 +132,6 @@ body {
 .ingest-status.is-ok { color: #215c32; }
 .ingest-status.is-busy { color: var(--link); }
 
-@media (max-width: 720px) {
-  .ingest { grid-template-columns: 1fr; }
-}
-
 main {
   max-width: 72rem;
   margin: 0 auto;
@@ -146,6 +150,18 @@ h2 { font-size: 1.15rem; margin: 1.75rem 0 0.6rem; }
   color: var(--card);
   font-size: 0.95rem;
   letter-spacing: 0.04em;
+}
+
+.date-group { margin-bottom: 1.75rem; }
+.date-group h2 { display: flex; align-items: baseline; gap: 0.75rem; }
+.date-group .count { color: var(--muted); font-size: 0.9rem; font-weight: 400; }
+.filter { margin: 0 0 1.25rem; }
+.filter select {
+  margin-left: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  border: 1px solid var(--line);
+  background: #fff;
 }
 
 .companies { list-style: none; padding: 0; margin: 0 0 1.5rem; }
@@ -232,6 +248,7 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; 
 
 @media (max-width: 720px) {
   .top { grid-template-columns: 1fr; }
+  .ingest { grid-template-columns: 1fr; }
   .companies a { grid-template-columns: 1fr; }
   .filings { font-size: 0.85rem; }
 }

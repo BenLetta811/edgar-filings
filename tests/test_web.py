@@ -63,6 +63,15 @@ def test_web_search_and_company(tmp_path: Path):
     assert b"93,736" in page.data
     assert b"Income statement" in page.data
 
+    updates = client.get("/updates")
+    assert updates.status_code == 200
+    assert b"Recent updates" in updates.data
+    assert b"2024-11-01" in updates.data
+    assert b"Apple Inc." in updates.data
+    filtered = client.get("/updates?form=10-K")
+    assert filtered.status_code == 200
+    assert b"10-K" in filtered.data
+
     missing = client.get("/company/0000000000")
     assert missing.status_code == 404
 

@@ -212,20 +212,20 @@ class Database:
             "latest_filed": str(latest),
         }
 
-    def recent_filings(self, limit: int = 50) -> list[sqlite3.Row]:
-        return list(
-            self.conn.execute(
-                """
-                SELECT f.accession, f.cik, f.form, f.filed_at, f.report_date,
-                       f.primary_document, f.document_url, c.ticker, c.name
-                FROM filings f
-                JOIN companies c ON c.cik = f.cik
-                ORDER BY f.filed_at DESC, f.accession DESC
-                LIMIT ?
-                """,
-                (limit,),
-            )
-        )
+    def recent_filings(self, limit: int = 50, form: str | None = None) -> list[sqlite3.Row]:
+        sql = """
+            SELECT f.accession, f.cik, f.form, f.filed_at, f.report_date,
+                   f.primary_document, f.document_url, c.ticker, c.name
+            FROM filings f
+            JOIN companies c ON c.cik = f.cik
+        """
+        params: list[object] = []
+        if form:
+            sql += " WHERE f.form = ? COLLATE NOCASE"
+            params.append(form.strip())
+        sql += " ORDER BY f.filed_at DESC, f.accession DESC LIMIT ?"
+        params.append(limit)
+        return list(self.conn.execute(sql, params))
 
     def list_filings(self, cik: str, limit: int = 25) -> list[sqlite3.Row]:
         return list(

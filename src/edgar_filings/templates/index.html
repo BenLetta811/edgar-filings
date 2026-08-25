@@ -27,7 +27,7 @@
     {% endif %}
   {% else %}
     <h1>Latest stored filings</h1>
-    <p class="lede">Search by ticker or company name. This list is from the local SQLite database, not a live SEC query.</p>
+    <p class="lede">Search by ticker or company name, or open <a href="{{ url_for('updates') }}">recent updates</a> for the full date-sorted list.</p>
     {% if filings %}
       {% include "_filings_table.html" %}
     {% else %}
