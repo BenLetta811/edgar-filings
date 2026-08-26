@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sqlite3
 from collections.abc import Iterable, Sequence
+from datetime import date
 from pathlib import Path
 
 from edgar_filings.facts import XbrlFact
@@ -51,6 +52,37 @@ CREATE TABLE IF NOT EXISTS xbrl_facts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_facts_concept ON xbrl_facts (cik, concept);
+
+CREATE TABLE IF NOT EXISTS stock_quotes (
+    ticker TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    price REAL,
+    change_amt REAL,
+    change_pct REAL,
+    volume_m REAL,
+    avg_vol_3m_m REAL,
+    market_cap_b REAL,
+    pe_ratio REAL,
+    wk52_change_pct REAL,
+    wk52_low REAL,
+    wk52_high REAL,
+    as_of TEXT NOT NULL,
+    PRIMARY KEY (ticker, as_of)
+);
+
+CREATE INDEX IF NOT EXISTS idx_quotes_ticker ON stock_quotes (ticker);
+CREATE INDEX IF NOT EXISTS idx_quotes_as_of ON stock_quotes (as_of);
+
+CREATE TABLE IF NOT EXISTS stock_ytd (
+    ticker TEXT NOT NULL,
+    year INTEGER NOT NULL,
+    start_date TEXT NOT NULL,
+    start_price REAL NOT NULL,
+    last_date TEXT NOT NULL,
+    last_price REAL NOT NULL,
+    ytd_return_pct REAL,
+    PRIMARY KEY (ticker, year)
+);
 """
 
 
@@ -298,5 +330,114 @@ class Database:
                 LIMIT ?
                 """,
                 (cik, *names, limit),
+            )
+        )
+
+    def upsert_quotes(self, rows: Iterable[tuple]) -> int:
+        payload = list(rows)
+        self.conn.executemany(
+            """
+            INSERT INTO stock_quotes (
+                ticker, name, price, change_amt, change_pct, volume_m, avg_vol_3m_m,
+                market_cap_b, pe_ratio, wk52_change_pct, wk52_low, wk52_high, as_of
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(ticker, as_of) DO UPDATE SET
+                name = excluded.name,
+                price = excluded.price,
+                change_amt = excluded.change_amt,
+                change_pct = excluded.change_pct,
+                volume_m = excluded.volume_m,
+                avg_vol_3m_m = excluded.avg_vol_3m_m,
+                market_cap_b = excluded.market_cap_b,
+                pe_ratio = excluded.pe_ratio,
+                wk52_change_pct = excluded.wk52_change_pct,
+                wk52_low = excluded.wk52_low,
+                wk52_high = excluded.wk52_high
+            """,
+            payload,
+        )
+        self.conn.commit()
+        return len(payload)
+
+    def latest_quote(self, ticker: str, year: int | None = None) -> sqlite3.Row | None:
+        year = year or date.today().year
+        return self.conn.execute(
+            """
+            SELECT q.ticker, q.name, q.price, q.change_amt, q.change_pct, q.volume_m,
+                   q.avg_vol_3m_m, q.market_cap_b, q.pe_ratio, q.wk52_change_pct,
+                   q.wk52_low, q.wk52_high, q.as_of,
+                   y.start_date AS ytd_start_date,
+                   y.start_price AS ytd_start_price,
+                   y.ytd_return_pct AS ytd_return_pct
+            FROM stock_quotes q
+            LEFT JOIN stock_ytd y ON y.ticker = q.ticker AND y.year = ?
+            WHERE q.ticker = ? COLLATE NOCASE
+            ORDER BY q.as_of DESC
+            LIMIT 1
+            """,
+            (year, ticker.upper().strip()),
+        ).fetchone()
+
+    def quote_history(self, ticker: str, limit: int = 90) -> list[sqlite3.Row]:
+        return list(
+            self.conn.execute(
+                """
+                SELECT ticker, name, price, change_amt, change_pct, volume_m, avg_vol_3m_m,
+                       market_cap_b, pe_ratio, wk52_change_pct, wk52_low, wk52_high, as_of
+                FROM stock_quotes
+                WHERE ticker = ? COLLATE NOCASE
+                ORDER BY as_of DESC
+                LIMIT ?
+                """,
+                (ticker.upper().strip(), limit),
+            )
+        )
+
+    def upsert_ytd(self, rows: Iterable[tuple]) -> int:
+        payload = list(rows)
+        self.conn.executemany(
+            """
+            INSERT INTO stock_ytd (
+                ticker, year, start_date, start_price, last_date, last_price, ytd_return_pct
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(ticker, year) DO UPDATE SET
+                start_date = excluded.start_date,
+                start_price = excluded.start_price,
+                last_date = excluded.last_date,
+                last_price = excluded.last_price,
+                ytd_return_pct = excluded.ytd_return_pct
+            """,
+            payload,
+        )
+        self.conn.commit()
+        return len(payload)
+
+    def latest_quotes(self, limit: int = 200, year: int | None = None) -> list[sqlite3.Row]:
+        year = year or date.today().year
+        return list(
+            self.conn.execute(
+                """
+                SELECT q.ticker, q.name, q.price, q.change_amt, q.change_pct, q.volume_m,
+                       q.avg_vol_3m_m, q.market_cap_b, q.pe_ratio, q.wk52_change_pct,
+                       q.wk52_low, q.wk52_high, q.as_of,
+                       y.start_date AS ytd_start_date,
+                       y.start_price AS ytd_start_price,
+                       y.ytd_return_pct AS ytd_return_pct
+                FROM stock_quotes q
+                JOIN (
+                    SELECT ticker, MAX(as_of) AS as_of
+                    FROM stock_quotes
+                    GROUP BY ticker
+                ) latest ON latest.ticker = q.ticker AND latest.as_of = q.as_of
+                LEFT JOIN stock_ytd y ON y.ticker = q.ticker AND y.year = ?
+                ORDER BY
+                    CASE WHEN y.ytd_return_pct IS NULL THEN 1 ELSE 0 END,
+                    y.ytd_return_pct DESC,
+                    q.ticker
+                LIMIT ?
+                """,
+                (year, limit),
             )
         )

@@ -99,6 +99,38 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
 
+    prices = sub.add_parser(
+        "import-prices",
+        help="Import a Tableau/Excel stock quote snapshot into SQLite",
+    )
+    prices.add_argument("path", help="Path to stock_prices_tableau.xlsx")
+    prices.add_argument(
+        "--as-of",
+        default=None,
+        help="Snapshot date YYYY-MM-DD (default: Excel file modified date)",
+    )
+
+    refresh = sub.add_parser(
+        "refresh-prices",
+        help="Fetch latest market quotes for tickers already in stock_quotes",
+    )
+    refresh.add_argument(
+        "--as-of",
+        default=None,
+        help="Snapshot date YYYY-MM-DD (default: today)",
+    )
+
+    history_prices = sub.add_parser(
+        "load-price-history",
+        help="Load daily closes for the last N days into stock_quotes",
+    )
+    history_prices.add_argument("--days", type=int, default=10)
+
+    ytd = sub.add_parser(
+        "load-ytd",
+        help="Load first trading-day price of the year and compute YTD return",
+    )
+
     return parser
 
 
@@ -236,6 +268,69 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_import_prices(args: argparse.Namespace) -> int:
+    from edgar_filings.prices import import_stock_prices
+
+    db = Database(args.db)
+    try:
+        count, snapshot = import_stock_prices(db, args.path, as_of=args.as_of)
+    except Exception as exc:
+        print(str(exc), file=sys.stderr)
+        db.close()
+        return 1
+    print(f"Imported {count} quotes as of {snapshot} -> {db.path}")
+    db.close()
+    return 0
+
+
+def cmd_refresh_prices(args: argparse.Namespace) -> int:
+    from edgar_filings.prices import refresh_live_quotes
+
+    db = Database(args.db)
+    try:
+        count, failed, snapshot = refresh_live_quotes(db, as_of=args.as_of)
+    except Exception as exc:
+        print(str(exc), file=sys.stderr)
+        db.close()
+        return 1
+    print(f"Updated {count} quotes as of {snapshot} ({failed} failed) -> {db.path}")
+    db.close()
+    return 0
+
+
+def cmd_load_price_history(args: argparse.Namespace) -> int:
+    from edgar_filings.prices import load_price_history
+
+    db = Database(args.db)
+    try:
+        count, failed, start, end = load_price_history(db, days=args.days)
+    except Exception as exc:
+        print(str(exc), file=sys.stderr)
+        db.close()
+        return 1
+    print(
+        f"Loaded {count} daily quotes {start} to {end} "
+        f"({failed} tickers failed) -> {db.path}"
+    )
+    db.close()
+    return 0
+
+
+def cmd_load_ytd(args: argparse.Namespace) -> int:
+    from edgar_filings.prices import load_ytd_returns
+
+    db = Database(args.db)
+    try:
+        count, failed = load_ytd_returns(db)
+    except Exception as exc:
+        print(str(exc), file=sys.stderr)
+        db.close()
+        return 1
+    print(f"Loaded YTD for {count} tickers ({failed} failed) -> {db.path}")
+    db.close()
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -251,6 +346,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         return cmd_facts(args)
     if args.command == "serve":
         return cmd_serve(args)
+    if args.command == "import-prices":
+        return cmd_import_prices(args)
+    if args.command == "refresh-prices":
+        return cmd_refresh_prices(args)
+    if args.command == "load-price-history":
+        return cmd_load_price_history(args)
+    if args.command == "load-ytd":
+        return cmd_load_ytd(args)
     parser.error(f"unknown command {args.command}")
     return 2
 

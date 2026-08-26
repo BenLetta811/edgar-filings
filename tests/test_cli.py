@@ -19,6 +19,10 @@ def test_cli_ingest_latest_args():
     assert serve.port == 9000
     history = parser.parse_args(["ingest-range", "2026-08-01", "2026-08-14"])
     assert history.command == "ingest-range"
+    prices = parser.parse_args(["import-prices", "quotes.xlsx", "--as-of", "2026-08-26"])
+    assert prices.command == "import-prices"
+    ytd = parser.parse_args(["load-ytd"])
+    assert ytd.command == "load-ytd"
 
 
 def test_filings_missing_company(tmp_path, capsys):

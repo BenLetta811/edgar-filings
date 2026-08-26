@@ -97,6 +97,17 @@ def create_app(db_path: str | Path | None = None) -> Flask:
             db_path=db.path.name,
         )
 
+    @app.route("/prices")
+    def prices():
+        db: Database = g.db
+        return render_template(
+            "prices.html",
+            query="",
+            stats=db.stats(),
+            quotes=db.latest_quotes(),
+            db_path=db.path.name,
+        )
+
     @app.route("/company/<cik>")
     def company(cik: str):
         db: Database = g.db
@@ -107,11 +118,15 @@ def create_app(db_path: str | Path | None = None) -> Flask:
         statements = build_statements(
             db.query_facts_by_concepts(found.cik, statement_concepts())
         )
+        quote = db.latest_quote(found.ticker) if found.ticker else None
+        history = db.quote_history(found.ticker, limit=30) if found.ticker else []
         return render_template(
             "company.html",
             company=found,
             filings=filings,
             statements=statements,
+            quote=quote,
+            quote_history=history,
             stats=db.stats(),
             db_path=db.path.name,
         )

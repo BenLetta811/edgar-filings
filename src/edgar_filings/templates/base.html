@@ -12,6 +12,7 @@
     <nav class="nav">
       <a href="{{ url_for('index') }}">Search</a>
       <a href="{{ url_for('updates') }}">Recent updates</a>
+      <a href="{{ url_for('prices') }}">Prices</a>
     </nav>
     <form class="search" action="{{ url_for('index') }}" method="get">
       <label class="sr-only" for="q">Search ticker or company</label>

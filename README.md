@@ -79,7 +79,15 @@ Browse stored filings by ticker or company name (local SQLite only; the browser 
 edgar-filings serve
 ```
 
-Then open http://127.0.0.1:8000. **Recent updates** (`/updates`) lists stored filings newest first, grouped by filing date. Use **Download latest data** for the most recent published daily index, or pick a From/To range and **Load historical data** (up to 62 days). Search a ticker or company name to see income statement, balance sheet, and cash flow amounts.
+Then open http://127.0.0.1:8000. **Recent updates** (`/updates`) lists stored filings newest first, grouped by filing date. **Prices** (`/prices`) shows the latest Excel quote snapshot.
+
+Import Tableau/Excel quotes (`Ticker`, `Price`, 52-week range, etc.):
+
+```bash
+edgar-filings import-prices ~/Downloads/stock_prices_tableau.xlsx
+```
+
+The workbook is a point-in-time snapshot, not daily OHLC. Re-importing with a new `--as-of` date appends history.
 
 ## What is stored
 

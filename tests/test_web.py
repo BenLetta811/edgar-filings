@@ -41,6 +41,25 @@ def _seed(path: Path) -> None:
             )
         ]
     )
+    db.upsert_quotes(
+        [
+            (
+                "AAPL",
+                "Apple Inc.",
+                190.0,
+                1.0,
+                0.53,
+                40.0,
+                50.0,
+                2900.0,
+                30.0,
+                10.0,
+                150.0,
+                220.0,
+                "2026-08-26",
+            )
+        ]
+    )
     db.close()
 
 
@@ -62,6 +81,11 @@ def test_web_search_and_company(tmp_path: Path):
     assert b"Net income" in page.data
     assert b"93,736" in page.data
     assert b"Income statement" in page.data
+    assert b"190.00" in page.data
+
+    prices = client.get("/prices")
+    assert prices.status_code == 200
+    assert b"AAPL" in prices.data
 
     updates = client.get("/updates")
     assert updates.status_code == 200
@@ -77,7 +101,7 @@ def test_web_search_and_company(tmp_path: Path):
 
     home = client.get("/")
     assert b"Download latest data" in home.data
-    assert b"Load historical data" in home.data
+    assert b"Prices" in home.data
 
     bad = client.post("/ingest/history", json={"start": "nope", "end": "2024-01-01"})
     assert bad.status_code == 400
