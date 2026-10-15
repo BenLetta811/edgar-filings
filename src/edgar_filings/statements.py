@@ -17,6 +17,7 @@ class StatementLine:
     kind: StatementKind
     unit: str = "USD"
     per_share: bool = False
+    show: bool = True
 
 
 STATEMENT_LINES: tuple[StatementLine, ...] = (
@@ -85,7 +86,28 @@ STATEMENT_LINES: tuple[StatementLine, ...] = (
     StatementLine("Balance sheet", "Current assets", ("AssetsCurrent",), "instant"),
     StatementLine("Balance sheet", "Total assets", ("Assets",), "instant"),
     StatementLine("Balance sheet", "Current liabilities", ("LiabilitiesCurrent",), "instant"),
-    StatementLine("Balance sheet", "Long-term debt", ("LongTermDebt", "LongTermDebtNoncurrent"), "instant"),
+    StatementLine(
+        "Balance sheet",
+        "Short-term debt",
+        (
+            "DebtCurrent",
+            "ShortTermBorrowings",
+            "LongTermDebtCurrent",
+            "LongTermDebtAndCapitalLeaseObligationsCurrent",
+            "CommercialPaper",
+        ),
+        "instant",
+    ),
+    StatementLine(
+        "Balance sheet",
+        "Long-term debt",
+        (
+            "LongTermDebt",
+            "LongTermDebtNoncurrent",
+            "LongTermDebtAndCapitalLeaseObligations",
+        ),
+        "instant",
+    ),
     StatementLine("Balance sheet", "Total liabilities", ("Liabilities",), "instant"),
     StatementLine(
         "Balance sheet",
@@ -119,6 +141,25 @@ STATEMENT_LINES: tuple[StatementLine, ...] = (
             "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsPeriodIncreaseDecreaseIncludingExchangeRateEffect",
         ),
         "duration",
+    ),
+    StatementLine(
+        "Income statement",
+        "Shares (basic)",
+        ("WeightedAverageNumberOfSharesOutstandingBasic",),
+        "duration",
+        unit="shares",
+        show=False,
+    ),
+    StatementLine(
+        "Income statement",
+        "Shares (diluted)",
+        (
+            "WeightedAverageNumberOfDilutedSharesOutstanding",
+            "WeightedAverageNumberOfShareOutstandingBasicAndDiluted",
+        ),
+        "duration",
+        unit="shares",
+        show=False,
     ),
 )
 
@@ -181,6 +222,30 @@ def format_amount(value: float | None, *, per_share: bool = False, scale: int = 
     if formatted.startswith("-"):
         return f"({formatted[1:]})"
     return formatted
+
+
+def format_multiple(value: float | None) -> str:
+    if value is None:
+        return "—"
+    formatted = f"{value:,.2f}x"
+    if formatted.startswith("-"):
+        return f"({formatted[1:]})"
+    return formatted
+
+
+def format_percent(value: float | None) -> str:
+    if value is None:
+        return "—"
+    formatted = f"{value * 100:,.1f}%"
+    if formatted.startswith("-"):
+        return f"({formatted[1:]})"
+    return formatted
+
+
+def _div(numerator: float | None, denominator: float | None) -> float | None:
+    if numerator is None or denominator is None or denominator == 0:
+        return None
+    return numerator / denominator
 
 
 def choose_scale(values: Iterable[float]) -> tuple[int, str]:
@@ -280,6 +345,7 @@ def build_statements(rows: Sequence[Any], max_periods: int = 5) -> dict[str, Any
 
     numeric_values: list[float] = []
     prepared_rows: list[dict[str, Any]] = []
+    by_label: dict[str, dict[str, float | None]] = {}
     for line in STATEMENT_LINES:
         amounts: dict[str, float | None] = {}
         raw_rows: list[Any] = []
@@ -290,9 +356,10 @@ def build_statements(rows: Sequence[Any], max_periods: int = 5) -> dict[str, Any
             chosen = _best_fact(subset, line)
             number = _parse_number(str(chosen["value"])) if chosen is not None else None
             amounts[end] = number
-            if number is not None and not line.per_share:
+            if number is not None and not line.per_share and line.unit == "USD":
                 numeric_values.append(number)
-        if any(value is not None for value in amounts.values()):
+        by_label[line.label] = amounts
+        if line.show and any(value is not None for value in amounts.values()):
             prepared_rows.append({"line": line, "amounts": amounts})
 
     scale, scale_label = choose_scale(numeric_values)
@@ -307,12 +374,17 @@ def build_statements(rows: Sequence[Any], max_periods: int = 5) -> dict[str, Any
             {
                 "label": line.label,
                 "per_share": line.per_share,
+                "display": "eps" if line.per_share else "amount",
                 "amounts": display,
                 "negative": {
                     end: (value is not None and value < 0) for end, value in item["amounts"].items()
                 },
             }
         )
+
+    ratio_rows = _ratio_rows(by_label, period_ends)
+    if ratio_rows:
+        sections["Ratios"] = ratio_rows
 
     return {
         "scale_label": scale_label,
@@ -326,3 +398,107 @@ def build_statements(rows: Sequence[Any], max_periods: int = 5) -> dict[str, Any
         ],
         "sections": [{"title": title, "rows": rows_} for title, rows_ in sections.items()],
     }
+
+
+def _pick(by_label: dict[str, dict[str, float | None]], label: str, end: str) -> float | None:
+    return by_label.get(label, {}).get(end)
+
+
+def _total_debt(by_label: dict[str, dict[str, float | None]], end: str) -> float | None:
+    short_term = _pick(by_label, "Short-term debt", end)
+    long_term = _pick(by_label, "Long-term debt", end)
+    if short_term is None and long_term is None:
+        return None
+    return (short_term or 0) + (long_term or 0)
+
+
+def _gross_profit(by_label: dict[str, dict[str, float | None]], end: str) -> float | None:
+    reported = _pick(by_label, "Gross profit", end)
+    if reported is not None:
+        return reported
+    revenue = _pick(by_label, "Revenue", end)
+    cost = _pick(by_label, "Cost of revenue", end)
+    if revenue is None or cost is None:
+        return None
+    return revenue - cost
+
+
+def _eps(
+    by_label: dict[str, dict[str, float | None]],
+    end: str,
+    reported_label: str,
+    shares_label: str,
+) -> float | None:
+    reported = _pick(by_label, reported_label, end)
+    if reported is not None:
+        return reported
+    return _div(_pick(by_label, "Net income", end), _pick(by_label, shares_label, end))
+
+
+def _ratio_rows(
+    by_label: dict[str, dict[str, float | None]],
+    period_ends: Sequence[str],
+) -> list[dict[str, Any]]:
+    computed: list[tuple[str, str, dict[str, float | None]]] = [
+        ("EPS (basic)", "eps", {end: _eps(by_label, end, "EPS (basic)", "Shares (basic)") for end in period_ends}),
+        ("EPS (diluted)", "eps", {end: _eps(by_label, end, "EPS (diluted)", "Shares (diluted)") for end in period_ends}),
+        (
+            "Debt / equity",
+            "ratio",
+            {end: _div(_total_debt(by_label, end), _pick(by_label, "Stockholders' equity", end)) for end in period_ends},
+        ),
+        (
+            "Liabilities / equity",
+            "ratio",
+            {
+                end: _div(_pick(by_label, "Total liabilities", end), _pick(by_label, "Stockholders' equity", end))
+                for end in period_ends
+            },
+        ),
+        (
+            "Current ratio",
+            "ratio",
+            {
+                end: _div(_pick(by_label, "Current assets", end), _pick(by_label, "Current liabilities", end))
+                for end in period_ends
+            },
+        ),
+        (
+            "Gross margin",
+            "percent",
+            {end: _div(_gross_profit(by_label, end), _pick(by_label, "Revenue", end)) for end in period_ends},
+        ),
+        (
+            "Net margin",
+            "percent",
+            {end: _div(_pick(by_label, "Net income", end), _pick(by_label, "Revenue", end)) for end in period_ends},
+        ),
+        (
+            "Return on equity",
+            "percent",
+            {
+                end: _div(_pick(by_label, "Net income", end), _pick(by_label, "Stockholders' equity", end))
+                for end in period_ends
+            },
+        ),
+    ]
+    rows: list[dict[str, Any]] = []
+    formatters = {
+        "eps": lambda value: format_amount(value, per_share=True),
+        "ratio": format_multiple,
+        "percent": format_percent,
+    }
+    for label, display, amounts in computed:
+        if not any(value is not None for value in amounts.values()):
+            continue
+        formatter = formatters[display]
+        rows.append(
+            {
+                "label": label,
+                "per_share": display == "eps",
+                "display": display,
+                "amounts": {end: formatter(value) for end, value in amounts.items()},
+                "negative": {end: (value is not None and value < 0) for end, value in amounts.items()},
+            }
+        )
+    return rows
